@@ -1,4 +1,4 @@
-# Stamp Image Classification
+# LINE sticker Image Classification
 
 ### 1. Usage
 
