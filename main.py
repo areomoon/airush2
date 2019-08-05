@@ -7,14 +7,11 @@ import numpy as np
 import argparse
 import pathlib
 from model import Baseline, Resnet
-from dataloader import train_dataloader
 import nsml
 import pandas as pd
-
-from PIL import Image
 from torchvision import transforms
-
 from torch.utils.data import Dataset, DataLoader
+from dataloader import train_dataloader
 from dataloader import AIRushDataset
 
 def to_np(t):
@@ -31,7 +28,7 @@ def bind_model(model_nsml):
     def load(dir_name):
         save_state_path = os.path.join(dir_name, 'state_dict.pkl')
         state = torch.load(save_state_path)
-        model_nsml = state['model']
+        model_nsml.load_state_dict(state['model'])
         
     def infer(test_image_data_path, test_meta_data_path):
         # DONOTCHANGE This Line
@@ -45,7 +42,7 @@ def bind_model(model_nsml):
                         AIRushDataset(test_image_data_path, test_meta_data, label_path=None,
                                       transform=transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor()])),
                         batch_size=batch_size,
-                        shuffle=True,
+                        shuffle=False,
                         num_workers=0,
                         pin_memory=True)
         
@@ -107,7 +104,6 @@ if __name__ == '__main__':
     bind_model(model)
     if args.pause:
         nsml.paused(scope=locals())
-    
     if args.mode == "train":
         # Warning: Do not load data before this line
         dataloader = train_dataloader(args.input_size, args.batch_size, args.num_workers)
