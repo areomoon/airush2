@@ -58,7 +58,7 @@ def bind_model(model_nsml):
             predict_list.append(predict)
                 
         predict_vector = np.concatenate(predict_list, axis=0)
-        return predict_vector # this return type should be a numpy array which has shape of (138343, 1)
+        return predict_vector # this return type should be a numpy array which has shape of (138343)
 
     # DONOTCHANGE: They are reserved for nsml
     nsml.bind(save=save, load=load, infer=infer)
