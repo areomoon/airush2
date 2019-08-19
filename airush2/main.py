@@ -1,4 +1,4 @@
-from data_local_loader import get_data_loader
+from data_local_loader import get_data_loader, get_train_valid_indice
 from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 import torch.nn as nn
@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 import time
 import datetime
+from collections import Counter
 
 from data_loader import feed_infer
 from evaluation import evaluation_metrics
@@ -179,10 +180,17 @@ def main(args):
         validation_split = 0.05
         train_split = 1 - validation_split
 
-        train_indices, val_indices = get_train_valid_indice(dataset_size=dataset_size, test_size=validation_split)
+        train_indices, val_indices, train_y, valid_y = get_train_valid_indice(test_size=validation_split)
+        counter_tr_y = Counter(train_y)
+        counter_val_y = Counter(valid_y)
+
+        print('==='*10)
         print('train-valid split : {}-{}'.format(train_split,validation_split))
         print('length of train: {}'.format(len(train_indices)))
+        print('proportion of train: {}'.format(counter_tr_y))
         print('length of valid: {}'.format(len(val_indices)))
+        print('proportion of valid: {}'.format(counter_val_y))
+        print('==='*10)
         train_sampler = SubsetRandomSampler(train_indices)
         valid_sampler = SubsetRandomSampler(val_indices)
 
@@ -243,6 +251,20 @@ def main(args):
                     nsml.save('step_' + str(i))  # this will save your current model on nsml.
             if epoch % args.save_epoch_every == 0:
                 nsml.save('epoch_' + str(epoch))  # this will save your current model on nsml.
+
+            for i, data in enumerate(valid_loader):
+                images, extracted_image_features, labels, flat_features = data
+
+                images = images.cuda()
+                extracted_image_features = extracted_image_features.cuda()
+                flat_features = flat_features.cuda()
+                labels = labels.cuda()
+                # forward
+                if args.arch == 'MLP':
+                    logits = model(extracted_image_features, flat_features)
+                elif args.arch == 'Resnet':
+                    logits = model(images, flat_features)
+
     nsml.save('final')
 
 
