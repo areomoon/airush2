@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 import time
 import datetime
-
+from data_local_loader import get_train_valid_indice
 from data_loader import feed_infer
 from evaluation import evaluation_metrics
 import nsml
@@ -51,6 +51,7 @@ class MLP_only_flatfeatures(nn.Module):
             nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(4096, self.num_classes),
+            nn.Sigmoid()
         )
 
         self._initialize_weights()
@@ -83,6 +84,7 @@ class CTRResNet_CAT(models.ResNet):
             nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(4096, num_classes),
+            nn.Sigmoid()
         )
 
     def forward(self, x, flat_features):
@@ -179,7 +181,7 @@ def main(args):
         validation_split = 0.05
         train_split = 1 - validation_split
 
-        train_indices, val_indices = get_train_valid_indice(dataset_size=dataset_size, test_size=validation_split)
+        train_indices, val_indices = get_train_valid_indice(test_size=validation_split)
         print('train-valid split : {}-{}'.format(train_split,validation_split))
         print('length of train: {}'.format(len(train_indices)))
         print('length of valid: {}'.format(len(val_indices)))
@@ -223,8 +225,8 @@ def main(args):
                     logits = model(extracted_image_features, flat_features)
                 elif args.arch == 'Resnet':
                     logits = model(images, flat_features)
-                criterion = nn.MSELoss()
-                loss = torch.sqrt(criterion(logits.squeeze(), labels.float()))
+                criterion = nn.BCELoss()
+                loss = criterion(logits.squeeze(), labels.float())
 
                 # backward and optimize
                 optimizer.zero_grad()

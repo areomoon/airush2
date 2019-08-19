@@ -156,7 +156,7 @@ class AIRUSH2dataset(Dataset):
             label_onehot[time - 1] = 1
             flat_features.extend(label_onehot)
 
-        if self.args['use_read_history']:複賽
+        if self.args['use_read_history']:
             raise NotImplementedError('If you can handle "sequential" data, then.. hint: this helps a lot')
 
         flat_features = np.array(flat_features).flatten()
@@ -277,7 +277,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
     else:
         raise 'mode error'
 
-def get_train_valid_indice(test_size=0.2):
+def get_train_valid_indice(csv_file, test_size=0.2):
     label_data_path = os.path.join(DATASET_PATH, 'train', 
         os.path.basename(os.path.normpath(csv_file)).split('_')[0] + '_label')
     
