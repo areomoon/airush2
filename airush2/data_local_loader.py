@@ -13,6 +13,8 @@ import nsml
 from utils import get_transforms
 from utils import default_loader
 
+from sklearn.model_selection import train_test_split
+
 if not nsml.IS_ON_NSML:
     # if you want to run it on your local machine, then put your path here
     DATASET_PATH = '/home/kwpark_mk2/airush2_temp'
@@ -154,7 +156,7 @@ class AIRUSH2dataset(Dataset):
             label_onehot[time - 1] = 1
             flat_features.extend(label_onehot)
 
-        if self.args['use_read_history']:
+        if self.args['use_read_history']:複賽
             raise NotImplementedError('If you can handle "sequential" data, then.. hint: this helps a lot')
 
         flat_features = np.array(flat_features).flatten()
@@ -174,7 +176,7 @@ def my_collate(batch):
     return default_collate(batch)
 
 
-def get_data_loader(root, phase, batch_size=16, verbose=True):
+def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
     csv_path = root
 
     data_transforms = get_transforms('[transforms.Resize((456, 232))]', verbose=verbose)
@@ -191,13 +193,41 @@ def get_data_loader(root, phase, batch_size=16, verbose=True):
             transform=data_transforms,
             mode='train'
         )
-        dataset_sizes = len(image_datasets)
+        # dataset_sizes = len(image_datasets)
 
         dataloaders = torch.utils.data.DataLoader(image_datasets,
                                                   batch_size=batch_size,
-                                                  shuffle=(built_in_args['mode'] == 'train'),
+                                                  shuffle=False,
+                                                #   shuffle=(built_in_args['mode'] == 'train'),
                                                   pin_memory=False,
-                                                  num_workers=built_in_args['num_workers'])
+                                                  num_workers=built_in_args['num_workers'],
+                                                  sampler = sampler
+                                                  )
+
+        return dataloaders#, dataset_sizes
+    elif phase == 'valid':
+        print('[debug] data local loader ', phase)
+        built_in_args = {'mode': 'valid', 'use_sex': True, 'use_age': True, 'use_exposed_time': True,
+                         'use_read_history': False,
+                         'num_workers': 2, }
+
+        image_datasets = AIRUSH2dataset(
+            csv_path,
+            os.path.join(DATASET_PATH, 'train', 'train_data', 'train_image'),
+            args=built_in_args,
+            transform=data_transforms,
+            mode='train'
+        )
+        # dataset_sizes = len(image_datasets)
+
+        dataloaders = torch.utils.data.DataLoader(image_datasets,
+                                                  batch_size=batch_size,
+                                                  shuffle=False,
+                                                #   shuffle=(built_in_args['mode'] == 'valid'),
+                                                  pin_memory=False,
+                                                  num_workers=built_in_args['num_workers'],
+                                                  sampler = sampler
+                                                  )
 
         return dataloaders, dataset_sizes
     elif phase == 'test':
@@ -246,3 +276,16 @@ def get_data_loader(root, phase, batch_size=16, verbose=True):
         return dataloaders, dataset_sizes
     else:
         raise 'mode error'
+
+def get_train_valid_indice(test_size=0.2):
+    label_data_path = os.path.join(DATASET_PATH, 'train', 
+        os.path.basename(os.path.normpath(csv_file)).split('_')[0] + '_label')
+    
+    label = pd.read_csv(label_data_path, dtype={'label': int}, sep='\t')
+    dataset_size = len(label)
+    indice = [i for i in range(dataset_size)]
+
+    train_indice, valid_indice, train_y, valid_y= train_test_split(indice, label, test_size=test_size,
+                                                                        random_state=42, stratify=label)
+
+    return train_indice, valid_indice

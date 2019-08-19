@@ -1,4 +1,5 @@
 from data_local_loader import get_data_loader
+from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -139,7 +140,7 @@ def _infer(root, phase, model, task):
     print('_infer root - : ', root)
     with torch.no_grad():
         model.eval()
-        test_loader, dataset_sizes = get_data_loader(root, phase)
+        test_loader = get_data_loader(root, phase)
         y_pred = []
         print('start infer')
         for i, data in enumerate(test_loader):
@@ -175,10 +176,29 @@ def main(args):
         nsml.paused(scope=locals())
 
     if (args.mode == 'train') or args.dry_run:
-        train_loader, dataset_sizes = get_data_loader(
+        validation_split = 0.05
+        train_split = 1 - validation_split
+
+        train_indices, val_indices = get_train_valid_indice(dataset_size=dataset_size, test_size=validation_split)
+        print('train-valid split : {}-{}'.format(train_split,validation_split))
+        print('length of train: {}'.format(len(train_indices)))
+        print('length of valid: {}'.format(len(val_indices)))
+        train_sampler = SubsetRandomSampler(train_indices)
+        valid_sampler = SubsetRandomSampler(val_indices)
+
+        train_loader = get_data_loader(
             root=os.path.join(DATASET_PATH, 'train', 'train_data', 'train_data'),
             phase='train',
-            batch_size=args.batch_size)
+            batch_size=args.batch_size,
+            sampler=train_sampler
+            )
+
+        valid_loader = get_data_loader(
+            root=os.path.join(DATASET_PATH, 'train', 'train_data', 'train_data'),
+            phase='valid',
+            batch_size=args.batch_size,
+            sampler=valid_sampler
+            )
 
         start_time = datetime.datetime.now()
         iter_per_epoch = len(train_loader)
