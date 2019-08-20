@@ -13,7 +13,7 @@ from collections import Counter
 
 from data_local_loader import get_train_valid_indice
 from data_loader import feed_infer
-from evaluation import evaluation_metrics
+from evaluation import evaluation_metrics, evaluate
 import nsml
 
 # expected to be a difficult problem
@@ -242,7 +242,7 @@ def main(args):
         nsml.paused(scope=locals())
 
     if (args.mode == 'train') or args.dry_run:
-        validation_split = 0.05
+        validation_split = 0.1
         train_split = 1 - validation_split
 
         train_indices, val_indices, train_y, valid_y = get_train_valid_indice(test_size=validation_split)
@@ -283,6 +283,11 @@ def main(args):
             print('start training...!')
 
         for epoch in range(args.num_epochs):
+            y_train_pred = []
+            y_valid_pred = []
+            y_train_true = []
+            y_valid_true = []
+
             for i, data in enumerate(train_loader):
                 images, extracted_image_features, labels, flat_features = data
 
@@ -320,6 +325,12 @@ def main(args):
                 if i % args.save_step_every == 0:
                     # print('debug ] save testing purpose')
                     nsml.save('step_' + str(i))  # this will save your current model on nsml.
+                
+                y_train_pred += logits.cpu().flatten().tolist()
+                y_train_true += labels.cpu().flatten().tolist()
+            y_true = np.asarray(y_train_true)
+            y_pred = np.asarray(y_train_pred)
+            print('f1_score on train: {}'.format(evaluate(y_true, y_pred)))
             if epoch % args.save_epoch_every == 0:
                 nsml.save('epoch_' + str(epoch))  # this will save your current model on nsml.
 
@@ -335,7 +346,12 @@ def main(args):
                     logits = model(extracted_image_features, flat_features)
                 elif args.arch == 'Resnet':
                     logits = model(images, flat_features)
-
+                
+                y_valid_pred += logits.cpu().flatten().tolist()
+                y_valid_true += labels.cpu().flatten().tolist()
+            y_true = np.asarray(y_valid_true)
+            y_pred = np.asarray(y_valid_pred)
+            print('f1_score on validation: {}'.format(evaluate(y_true, y_pred)))
     nsml.save('final')
 
 
