@@ -275,7 +275,7 @@ def main(args):
 
         start_time = datetime.datetime.now()
         iter_per_epoch = len(train_loader)
-        best_loss = 1000
+        best_loss = 0.1
         if args.dry_run:
             print('start dry-running...!')
             args.num_epochs = 1
@@ -300,16 +300,8 @@ def main(args):
                 # Reverse the sigmoid score before passing outputs to loss function(BCEWithLogitsLoss)
                 logits_rev = torch.log(logits/(1-logits))
 
-                # Code for Debugging
-                print('prediction:')
-                print(logits.squeeze())
-                print('label:')
-                print(labels.float())
-                print('pred len: {}'.format(len(logits.squeeze())))
-                print('label len: {}'.format(len(labels.float())))
-
                 # Set class weights for solving class imbalance issue
-                pos_w = torch.from_numpy(np.array([8])) # hardcode class weight here
+                pos_w = torch.tensor([[8]]).type(torch.FloatTensor).cuda() # hardcode class weight here
                 criterion = nn.BCEWithLogitsLoss(pos_weight=pos_w)
                 loss = criterion(logits_rev, labels.float())
 
