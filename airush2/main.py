@@ -50,8 +50,7 @@ class MLP_only_flatfeatures(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, self.num_classes),
-            nn.Sigmoid()
+            nn.Linear(4096, self.num_classes)
         )
 
         self._initialize_weights()
@@ -83,8 +82,7 @@ class CTRResNet_CAT(models.ResNet):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, num_classes),
-            nn.Sigmoid()
+            nn.Linear(4096, num_classes)
         )
 
     def forward(self, x, flat_features):
@@ -225,6 +223,7 @@ def main(args):
                     logits = model(extracted_image_features, flat_features)
                 elif args.arch == 'Resnet':
                     logits = model(images, flat_features)
+                pos_weight_parm = torch.from_numpy(np.array([5]))
                 criterion = nn.BCELoss()
                 loss = criterion(logits.squeeze(), labels.float())
 
