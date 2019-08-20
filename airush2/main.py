@@ -1,4 +1,4 @@
-from data_local_loader import get_data_loader
+from data_local_loader import get_data_loader, get_train_valid_indice
 from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 import torch.nn as nn
@@ -9,6 +9,8 @@ import argparse
 import numpy as np
 import time
 import datetime
+from collections import Counter
+
 from data_local_loader import get_train_valid_indice
 from data_loader import feed_infer
 from evaluation import evaluation_metrics
@@ -25,6 +27,68 @@ import nsml
 # Greatly needed efficient coding of CNN RNNs.
 # You can also try to change the training data set itself. Because it deals with very imbalanced problems.
 # Refactor to summarize from existing experiment code.
+
+
+# weighted BCE loss function
+# def weighted_binary_cross_entropy(sigmoid_x, targets, pos_weight, weight=None, size_average=True, reduce=True):
+#     """
+#     Args:
+#         sigmoid_x: predicted probability of size [N,C], N sample and C Class. Eg. Must be in range of [0,1], i.e. Output from Sigmoid.
+#         targets: true value, one-hot-like vector of size [N,C]
+#         pos_weight: Weight for postive sample
+#     """
+#     if not (targets.size() == sigmoid_x.size()):
+#         raise ValueError("Target size ({}) must be the same as input size ({})".format(targets.size(), sigmoid_x.size()))
+#
+#     loss = -pos_weight * targets * sigmoid_x.log() - (1-targets)*(1-sigmoid_x).log()
+#
+#     if weight is not None:
+#         loss = loss * weight
+#
+#     if not reduce:
+#         return loss
+#     elif size_average:
+#         return loss.mean()
+#     else:
+#         return loss.sum()
+#
+# class WeightedBCELoss(nn.Module):
+#     def __init__(self, pos_weight=1, weight=None, PosWeightIsDynamic= False, WeightIsDynamic= False, size_average=True, reduce=True):
+#         """
+#         Args:
+#             pos_weight = Weight for postive samples. Size [1,C]
+#             weight = Weight for Each class. Size [1,C]
+#             PosWeightIsDynamic: If True, the pos_weight is computed on each batch. If pos_weight is None, then it remains None.
+#             WeightIsDynamic: If True, the weight is computed on each batch. If weight is None, then it remains None.
+#         """
+#         super().__init__()
+#
+#         self.register_buffer('weight', weight)
+#         self.register_buffer('pos_weight', pos_weight)
+#         self.size_average = size_average
+#         self.reduce = reduce
+#         self.PosWeightIsDynamic = PosWeightIsDynamic
+#
+#     def forward(self, input, target):
+#         # pos_weight = Variable(self.pos_weight) if not isinstance(self.pos_weight, Variable) else self.pos_weight
+#         if self.PosWeightIsDynamic:
+#             positive_counts = target.sum(dim=0)
+#             nBatch = len(target)
+#             self.pos_weight = (nBatch - positive_counts)/(positive_counts +1e-5)
+#
+#         if self.weight is not None:
+#             # weight = Variable(self.weight) if not isinstance(self.weight, Variable) else self.weight
+#             return weighted_binary_cross_entropy(input, target,
+#                                                  self.pos_weight,
+#                                                  weight=self.weight,
+#                                                  size_average=self.size_average,
+#                                                  reduce=self.reduce)
+#         else:
+#             return weighted_binary_cross_entropy(input, target,
+#                                                  self.pos_weight,
+#                                                  weight=None,
+#                                                  size_average=self.size_average,
+#                                                  reduce=self.reduce)
 
 if not nsml.IS_ON_NSML:
     DATASET_PATH = os.path.join('/home/kwpark_mk2/airush2_temp')
@@ -50,7 +114,8 @@ class MLP_only_flatfeatures(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, self.num_classes)
+            nn.Linear(4096, self.num_classes),
+            nn.Sigmoid()
         )
 
         self._initialize_weights()
@@ -82,7 +147,8 @@ class CTRResNet_CAT(models.ResNet):
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, num_classes)
+            nn.Linear(4096, num_classes),
+            nn.Sigmoid()
         )
 
     def forward(self, x, flat_features):
@@ -179,10 +245,17 @@ def main(args):
         validation_split = 0.05
         train_split = 1 - validation_split
 
-        train_indices, val_indices = get_train_valid_indice(test_size=validation_split)
+        train_indices, val_indices, train_y, valid_y = get_train_valid_indice(test_size=validation_split)
+        counter_tr_y = Counter(train_y)
+        counter_val_y = Counter(valid_y)
+
+        print('==='*10)
         print('train-valid split : {}-{}'.format(train_split,validation_split))
         print('length of train: {}'.format(len(train_indices)))
+        print('proportion of train: {}'.format(counter_tr_y))
         print('length of valid: {}'.format(len(val_indices)))
+        print('proportion of valid: {}'.format(counter_val_y))
+        print('==='*10)
         train_sampler = SubsetRandomSampler(train_indices)
         valid_sampler = SubsetRandomSampler(val_indices)
 
@@ -223,9 +296,22 @@ def main(args):
                     logits = model(extracted_image_features, flat_features)
                 elif args.arch == 'Resnet':
                     logits = model(images, flat_features)
-                pos_weight_parm = torch.from_numpy(np.array([5]))
-                criterion = nn.BCELoss()
-                loss = criterion(logits.squeeze(), labels.float())
+
+                # Reverse the sigmoid score before passing outputs to loss function(BCEWithLogitsLoss)
+                logits_rev = torch.log(logits/(1-logits))
+
+                # Code for Debugging
+                print('prediction:')
+                print(logits.squeeze())
+                print('label:')
+                print(labels.float())
+                print('pred len: {}'.format(len(logits.squeeze())))
+                print('label len: {}'.format(len(labels.float())))
+
+                # Set class weights for solving class imbalance issue
+                pos_w = torch.from_numpy(np.array([8])) # hardcode class weight here
+                criterion = nn.BCEWithLogitsLoss(pos_weight=pos_w)
+                loss = criterion(logits_rev, labels.float())
 
                 # backward and optimize
                 optimizer.zero_grad()
@@ -244,6 +330,20 @@ def main(args):
                     nsml.save('step_' + str(i))  # this will save your current model on nsml.
             if epoch % args.save_epoch_every == 0:
                 nsml.save('epoch_' + str(epoch))  # this will save your current model on nsml.
+
+            for i, data in enumerate(valid_loader):
+                images, extracted_image_features, labels, flat_features = data
+
+                images = images.cuda()
+                extracted_image_features = extracted_image_features.cuda()
+                flat_features = flat_features.cuda()
+                labels = labels.cuda()
+                # forward
+                if args.arch == 'MLP':
+                    logits = model(extracted_image_features, flat_features)
+                elif args.arch == 'Resnet':
+                    logits = model(images, flat_features)
+
     nsml.save('final')
 
 

@@ -69,7 +69,29 @@ class AIRUSH2dataset(Dataset):
                 with open(os.path.join(DATASET_PATH, 'train', 'train_data', 'train_image_features.pkl'),
                           'rb') as handle:
                     self.image_feature_dict = pickle.load(handle)
+        elif args['mode']== 'valid':
+            self.item = pd.read_csv(csv_file,
+                                    dtype={
+                                        'article_id': str,
+                                        'hh': int, 'gender': str,
+                                        'age_range': str,
+                                        'read_article_ids': str
+                                    }, sep='\t')
+            label_data_path = os.path.join(DATASET_PATH, 'train',
+                                           os.path.basename(os.path.normpath(csv_file)).split('_')[0] + '_label')
+            self.label = pd.read_csv(label_data_path,
+                                     dtype={'label': int},
+                                     sep='\t')
 
+            if nsml.IS_ON_NSML:
+                with open(os.path.join(DATASET_PATH, 'train', 'train_data', 'train_image_features.pkl'),
+                          'rb') as handle:
+                    self.image_feature_dict = pickle.load(handle)
+            else:
+                # on local machine
+                with open(os.path.join(DATASET_PATH, 'train', 'train_data', 'train_image_features.pkl'),
+                          'rb') as handle:
+                    self.image_feature_dict = pickle.load(handle)
         else:
             csv_file = os.path.join(csv_file, 'test', 'test_data', 'test_data')
 
@@ -229,7 +251,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
                                                   sampler = sampler
                                                   )
 
-        return dataloaders, dataset_sizes
+        return dataloaders#, dataset_sizes
     elif phase == 'test':
         print('[debug] data local loader ', phase)
 
@@ -244,14 +266,14 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
             transform=data_transforms,
             mode='test'
         )
-        dataset_sizes = len(image_datasets)
+        #dataset_sizes = len(image_datasets)
 
         dataloaders = torch.utils.data.DataLoader(image_datasets,
                                                   batch_size=batch_size,
                                                   shuffle=False,
                                                   pin_memory=False,
                                                   num_workers=built_in_args['num_workers'])
-        return dataloaders, dataset_sizes
+        return dataloaders#, dataset_sizes
     elif phase == 'infer':
         print('[debug] data local loader ', phase)
 
@@ -266,26 +288,30 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
             transform=data_transforms,
             mode='test'
         )
-        dataset_sizes = len(image_datasets)
+        #dataset_sizes = len(image_datasets)
 
         dataloaders = torch.utils.data.DataLoader(image_datasets,
                                                   batch_size=batch_size,
                                                   shuffle=False,
                                                   pin_memory=False,
                                                   num_workers=built_in_args['num_workers'])
-        return dataloaders, dataset_sizes
+        return dataloaders#, dataset_sizes
     else:
         raise 'mode error'
 
-def get_train_valid_indice(csv_file, test_size=0.2):
+def get_train_valid_indice(test_size=0.2):
+    csv_file = os.path.join(DATASET_PATH, 'train', 'train_data', 'train_data')
+
     label_data_path = os.path.join(DATASET_PATH, 'train', 
         os.path.basename(os.path.normpath(csv_file)).split('_')[0] + '_label')
     
     label = pd.read_csv(label_data_path, dtype={'label': int}, sep='\t')
+    label = label.label
+
     dataset_size = len(label)
     indice = [i for i in range(dataset_size)]
 
     train_indice, valid_indice, train_y, valid_y= train_test_split(indice, label, test_size=test_size,
                                                                         random_state=42, stratify=label)
 
-    return train_indice, valid_indice
+    return train_indice, valid_indice, train_y, valid_y
