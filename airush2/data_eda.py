@@ -32,12 +32,19 @@ csv_file = os.path.join(DATASET_PATH, 'train', 'train_data', 'train_data')
 # print('proportion of train: {}'.format(Counter(label.label)))
 # print(label.label.value_counts(normalize=True))
 
-## check user profile
+# check user profile
 df = pd.read_csv(csv_file,
                         dtype={
                             'article_id': str,
-                            'hh': int, 'gender': str,
+                            'hh': int,
+                            'gender': str,
                             'age_range': str,
                             'read_article_ids': str
                         }, sep='\t')
-print(df.head())
+
+
+# EDA for read_article_ids
+df['length_of_readid'] = df['read_article_ids'].str.len()
+
+print(df[['article_id','read_article_ids']].head(30))
+print(df[['article_id','length_of_readid']].head(30))

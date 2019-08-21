@@ -181,7 +181,7 @@ def main(args):
         nsml.paused(scope=locals())
 
     if (args.mode == 'train') or args.dry_run:
-        validation_split = 0.1
+        validation_split = 0.05
         train_split = 1 - validation_split
 
         train_indices, val_indices, train_y, valid_y = get_train_valid_indice(test_size=validation_split)
@@ -245,7 +245,7 @@ def main(args):
                 logits_rev = torch.log(logits/(1-logits))
 
                 # Set class weights for solving class imbalance issue
-                pos_w = torch.tensor([[8]]).type(torch.FloatTensor).cuda() # hardcode class weight here
+                pos_w = torch.tensor([[12]]).type(torch.FloatTensor).cuda() # hardcode class weight here
                 criterion = nn.BCEWithLogitsLoss(pos_weight=pos_w)
                 loss = criterion(logits_rev, labels.float())
 
@@ -265,32 +265,32 @@ def main(args):
                     # print('debug ] save testing purpose')
                     nsml.save('step_' + str(i))  # this will save your current model on nsml.
                 
-                y_train_pred += logits.cpu().flatten().tolist()
-                y_train_true += labels.cpu().flatten().tolist()
-            y_true = np.asarray(y_train_true)
-            y_pred = np.asarray(y_train_pred)
-            print('f1_score on train: {}'.format(evaluate(y_true, y_pred)))
+            #     y_train_pred += logits.cpu().flatten().tolist()
+            #     y_train_true += labels.cpu().flatten().tolist()
+            # y_true = np.asarray(y_train_true)
+            # y_pred = np.asarray(y_train_pred)
+            # print('f1_score on train: {}'.format(evaluate(y_true, y_pred)))
             if epoch % args.save_epoch_every == 0:
                 nsml.save('epoch_' + str(epoch))  # this will save your current model on nsml.
 
-            for i, data in enumerate(valid_loader):
-                images, extracted_image_features, labels, flat_features = data
-
-                images = images.cuda()
-                extracted_image_features = extracted_image_features.cuda()
-                flat_features = flat_features.cuda()
-                labels = labels.cuda()
-                # forward
-                if args.arch == 'MLP':
-                    logits = model(extracted_image_features, flat_features)
-                elif args.arch == 'Resnet':
-                    logits = model(images, flat_features)
-                
-                y_valid_pred += logits.cpu().flatten().tolist()
-                y_valid_true += labels.cpu().flatten().tolist()
-            y_true = np.asarray(y_valid_true)
-            y_pred = np.asarray(y_valid_pred)
-            print('f1_score on validation: {}'.format(evaluate(y_true, y_pred)))
+            # for i, data in enumerate(valid_loader):
+            #     images, extracted_image_features, labels, flat_features = data
+            #
+            #     images = images.cuda()
+            #     extracted_image_features = extracted_image_features.cuda()
+            #     flat_features = flat_features.cuda()
+            #     labels = labels.cuda()
+            #     # forward
+            #     if args.arch == 'MLP':
+            #         logits = model(extracted_image_features, flat_features)
+            #     elif args.arch == 'Resnet':
+            #         logits = model(images, flat_features)
+            #
+            #     y_valid_pred += logits.cpu().flatten().tolist()
+            #     y_valid_true += labels.cpu().flatten().tolist()
+            # y_true = np.asarray(y_valid_true)
+            # y_pred = np.asarray(y_valid_pred)
+            # print('f1_score on validation: {}'.format(evaluate(y_true, y_pred)))
     nsml.save('final')
 
 
@@ -308,14 +308,14 @@ if __name__ == '__main__':
     parser.add_argument('--use_exposed_time', type=bool, default=True)
     parser.add_argument('--use_read_history', type=bool, default=False)
 
-    parser.add_argument('--num_epochs', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=2048)
+    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--batch_size', type=int, default=2000)
     parser.add_argument('--num_classes', type=int, default=1)
     parser.add_argument('--task', type=str, default='ctrpred')
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--print_every', type=int, default=10)
     parser.add_argument('--save_epoch_every', type=int, default=2)
-    parser.add_argument('--save_step_every', type=int, default=300)
+    parser.add_argument('--save_step_every', type=int, default=500)
 
     parser.add_argument('--use_gpu', type=bool, default=True)
     parser.add_argument("--arch", type=str, default="MLP")
