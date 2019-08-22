@@ -40,4 +40,36 @@ df = pd.read_csv(csv_file,
                             'age_range': str,
                             'read_article_ids': str
                         }, sep='\t')
+
+def count_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0
+    if read_article_ids is np.nan:
+        return 0
+    return len(read_article_ids.split(','))
+
+def count_unique_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0
+    if read_article_ids is np.nan:
+        return 0
+    return len(set(read_article_ids.split(',')))
+
+def count_max_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0
+    if read_article_ids is np.nan:
+        return 0    
+    return Counter(read_article_ids.split(',')).most_common(1)[0][1]
+
+def count_features_on_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0, 0, 0, 0
+    if read_article_ids is np.nan:
+        return 0, 0, 0, 0    
+    count_list = [i for i in Counter(read_article_ids.split(',')).values()]
+    return np.sum(count_list), np.max(count_list), np.min(count_list), np.mean(count_list)
+
 print(df.head())
+# df.read_article_ids = df.read_article_ids.fillna('')
+print(df.read_article_ids.apply(lambda x: count_max_read_article(x)))
