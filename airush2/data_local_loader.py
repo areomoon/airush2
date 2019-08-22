@@ -1,5 +1,5 @@
 import pickle
-
+from collections import Counter
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
@@ -160,6 +160,7 @@ class AIRUSH2dataset(Dataset):
 
         # Additional info for feeding FC layer
         flat_features = []
+        read_history_flat_features = []
         if self.args['use_sex']:
             sex = self.sex[gender]
             label_onehot = np.zeros(2, dtype=np.float32)
@@ -179,8 +180,28 @@ class AIRUSH2dataset(Dataset):
             flat_features.extend(label_onehot)
 
         if self.args['use_read_history']:
-            raise NotImplementedError('If you can handle "sequential" data, then.. hint: this helps a lot')
+            # raise NotImplementedError('If you can handle "sequential" data, then.. hint: this helps a lot')
+            sum_art, max_art, min_art, mean_art = count_features_on_read_article(read_article_ids)
+            unique_art = count_unique_read_article(read_article_ids)
 
+            unique_art_onehot = np.zeros((1), dtype=np.float32)
+            sum_art_onehot = np.zeros((1), dtype=np.float32)
+            max_art_onehot = np.zeros((1), dtype=np.float32)
+            min_art_onehot = np.zeros((1), dtype=np.float32)
+            mean_art_onehot = np.zeros((1), dtype=np.float32)
+
+            unique_art_onehot[0] = unique_art
+            sum_art_onehot[0] = sum_art
+            max_art_onehot[0] = max_art
+            min_art_onehot[0] = min_art
+            mean_art_onehot[0] = mean_art
+
+            read_history_flat_features.extend(unique_art_onehot)
+            read_history_flat_features.extend(sum_art_onehot)
+            read_history_flat_features.extend(max_art_onehot)
+            read_history_flat_features.extend(min_art_onehot)
+            read_history_flat_features.extend(mean_art_onehot)
+        read_history_flat_features = np.array(read_history_flat_features).flatten()
         flat_features = np.array(flat_features).flatten()
         # pytorch dataloader doesn't accept empty np array
         if flat_features.shape[0] == 0:
@@ -189,7 +210,7 @@ class AIRUSH2dataset(Dataset):
 
         # hint: flat features are concatened into a Tensor, because I wanted to put them all into computational model,
         # hint: if it is not what you wanted, then change the last return line
-        return image, extracted_image_feature, label, flat_features
+        return image, extracted_image_feature, label, flat_features, read_history_flat_features
 
 
 def my_collate(batch):
@@ -205,7 +226,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
     if phase == 'train':
         print('[debug] data local loader ', phase)
         built_in_args = {'mode': 'train', 'use_sex': True, 'use_age': True, 'use_exposed_time': True,
-                         'use_read_history': False,
+                         'use_read_history': True,
                          'num_workers': 2, }
 
         image_datasets = AIRUSH2dataset(
@@ -230,7 +251,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
     elif phase == 'valid':
         print('[debug] data local loader ', phase)
         built_in_args = {'mode': 'valid', 'use_sex': True, 'use_age': True, 'use_exposed_time': True,
-                         'use_read_history': False,
+                         'use_read_history': True,
                          'num_workers': 2, }
 
         image_datasets = AIRUSH2dataset(
@@ -256,7 +277,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
         print('[debug] data local loader ', phase)
 
         built_in_args = {'mode': 'test', 'use_sex': True, 'use_age': True, 'use_exposed_time': True,
-                         'use_read_history': False,
+                         'use_read_history': True,
                          'num_workers': 3, }
 
         image_datasets = AIRUSH2dataset(
@@ -278,7 +299,7 @@ def get_data_loader(root, phase, batch_size=16, verbose=True, sampler=None):
         print('[debug] data local loader ', phase)
 
         built_in_args = {'mode': 'infer', 'use_sex': True, 'use_age': True, 'use_exposed_time': True,
-                         'use_read_history': False,
+                         'use_read_history': True,
                          'num_workers': 8, }
 
         image_datasets = AIRUSH2dataset(
@@ -315,3 +336,18 @@ def get_train_valid_indice(test_size=0.2):
                                                                         random_state=42, stratify=label)
 
     return train_indice, valid_indice, train_y, valid_y
+  
+def count_unique_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0
+    if read_article_ids is np.nan:
+        return 0
+    return len(set(read_article_ids.split(',')))
+
+def count_features_on_read_article(read_article_ids):
+    if read_article_ids is '':
+        return 0, 0, 0, 0
+    if read_article_ids is np.nan:
+        return 0, 0, 0, 0    
+    count_list = [i for i in Counter(read_article_ids.split(',')).values()]
+    return np.sum(count_list), np.max(count_list), np.min(count_list), np.mean(count_list)
