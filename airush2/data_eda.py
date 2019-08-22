@@ -32,11 +32,12 @@ csv_file = os.path.join(DATASET_PATH, 'train', 'train_data', 'train_data')
 # print('proportion of train: {}'.format(Counter(label.label)))
 # print(label.label.value_counts(normalize=True))
 
-## check user profile
+# check user profile
 df = pd.read_csv(csv_file,
                         dtype={
                             'article_id': str,
-                            'hh': int, 'gender': str,
+                            'hh': int,
+                            'gender': str,
                             'age_range': str,
                             'read_article_ids': str
                         }, sep='\t')

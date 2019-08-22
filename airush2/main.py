@@ -186,7 +186,7 @@ def main(args):
         nsml.paused(scope=locals())
 
     if (args.mode == 'train') or args.dry_run:
-        validation_split = 0.1
+        validation_split = 0.05
         train_split = 1 - validation_split
 
         train_indices, val_indices, train_y, valid_y = get_train_valid_indice(test_size=validation_split)
